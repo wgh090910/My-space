@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>My Space · 我的宇宙</title>
+<title>My Space - 我的宇宙</title>
 <style>
 body {
   margin: 0;
@@ -16,75 +16,84 @@ body {
 main { max-width: 700px; margin: auto; }
 img { width: 100%; border-radius: 14px; }
 p { line-height: 1.8; color: #ccd3ed; }
-input, button {
-  padding: 12px;
-  margin: 5px 0;
-  border-radius: 8px;
-}
+button, input { padding: 12px; margin: 5px 0; }
+button { cursor: pointer; }
 </style>
 </head>
 <body>
 <main>
 <h1>🌌 My Space</h1>
-<p>我的宇宙 · 每天探索一点星空</p>
+<p>我的宇宙 · 探索 NASA 每日太空图片</p>
 <input id="date" type="date">
-<button onclick="loadPhoto()">探索宇宙</button>
-<h2 id="title">正在寻找宇宙照片……</h2>
-<img id="photo" alt="NASA 太空照片">
-<p id="info">请稍候</p>
-<p id="status"></p>
-<a href="https://apod.nasa.gov/apod/astropix.html">
-访问 NASA 官方网站
+<button id="load">探索宇宙</button>
+<h2 id="title">准备探索星空</h2>
+<img id="photo" alt="NASA 太空照片" hidden>
+<p id="info"></p>
+<p id="status">正在连接 NASA……</p>
+<a href="https://science.nasa.gov/solar-system/" target="_blank">
+探索 NASA 太阳系
 </a>
 </main>
 <script>
 const dateInput = document.getElementById('date');
-const now = new Date();
-const today = [
-  now.getFullYear(),
-  String(now.getMonth()+1).padStart(2,'0'),
-  String(now.getDate()).padStart(2,'0')
-].join('-');
-
+const today = new Date().toLocaleDateString('en-CA');
 dateInput.max = today;
 dateInput.value = today;
 
 async function loadPhoto() {
-  const date = dateInput.value;
   const status = document.getElementById('status');
-  status.textContent = '正在连接 NASA……';
+  const photo = document.getElementById('photo');
+  const title = document.getElementById('title');
+  const info = document.getElementById('info');
+
+  photo.hidden = true;
+  status.textContent = '正在加载 NASA 图片……';
 
   try {
-    const url =
-      'https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY&date='
-      + encodeURIComponent(date);
+    const api = new URL(
+      'https://science.nasa.gov/wp-json/wp/v2/apod-basic/'
+    );
+    api.searchParams.set('date', dateInput.value);
+    api.searchParams.set('api_key', 'DEMO_KEY');
 
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('请求失败：' + response.status);
+    const response = await fetch(api);
+    if (!response.ok) {
+      throw new Error('NASA 接口返回状态 ' + response.status);
+    }
 
     const data = await response.json();
-    document.getElementById('title').textContent = data.title;
-    document.getElementById('info').textContent =
-      data.explanation || 'NASA 暂未提供介绍。';
+    title.textContent = data.title || 'NASA 每日图片';
 
-    if (data.media_type === 'image') {
-      document.getElementById('photo').src = data.url;
-      document.getElementById('photo').alt = data.title;
-    } else {
-      document.getElementById('photo').removeAttribute('src');
-      status.textContent = '当天内容是视频或其他媒体，请访问 NASA 官网查看。';
+    info.textContent = data.explanation || '';
+
+    if (data.media_type !== 'image' || !data.hdurl) {
+      status.textContent =
+        '当天没有可直接显示的图片，请访问 NASA 页面查看。';
+      return;
     }
+
+    photo.onload = () => {
+      photo.hidden = false;
+      status.textContent = '图片加载成功！🚀';
+    };
+
+    photo.onerror = () => {
+      status.textContent = '图片地址无法加载，请稍后重试。';
+    };
+
+    photo.src = data.hdurl;
+
     if (data.copyright) {
-      status.textContent = '图片署名：' + data.copyright;
-    } else if (data.media_type === 'image') {
-      status.textContent = '图片资料来自 NASA APOD。';
+      info.textContent += ' 图片署名：' + data.copyright;
     }
   } catch (error) {
     status.textContent =
-      '暂时加载失败。请检查网络，稍后再试。' + error.message;
+      '加载失败：' + error.message +
+      '。请检查网络，或稍后重试。';
   }
 }
 
+document.getElementById('load').addEventListener('click', loadPhoto);
 loadPhoto();
 </script>
 </body>
